@@ -1,11 +1,9 @@
-import os
-import sys 
-import json
-import spotipy
-import webbrowser
-from spotipy.oauth2 import SpotifyOAuth
-import configparser
 import requests
+import spotipy
+import spotipy.util as util
+import configparser
+from spotipy.oauth2 import SpotifyOAuth
+
 
 
 def printUserStats(spotipyObj):
@@ -13,7 +11,6 @@ def printUserStats(spotipyObj):
     print('')
     print(userInfo)
     
-
 
 def printAllLikedSongs(spotipyObj):
     offset = 0 # Each offset indicates the next set of songs 
@@ -38,6 +35,7 @@ def viewTrackInfo(spotipyObj):
         print(track)
     except:
         print('Invalid Playlist ID')
+
 
 def viewPlaylistInfo(spotipyObj):
     playlist_id = input("Please input the playlist ID (Copy Spotify URI): ")
@@ -64,17 +62,38 @@ def addSongToPlaylist(spotipyObj):
         print('Song added to playlist')
     except:
         print('Invalid Playlist or Track ID')
-# spotify:playlist:0EL9UjBOx1DS369cmNl5Yl
-# spotify:track:5HiSc2ZCGn8L3cH3qSwzBT
 
-def getSongURI(headers, title, artist):
+def getSongURI(headers):
+    title = input('Input title: ')
+    artist = input('Input artist: ')
+    #To get auth_header go here: https://github.com/plamere/spotipy/blob/master/spotipy/client.py
     BASE_URL = 'https://api.spotify.com/v1/'
-    #print(headers.get_access_token()['access_token'])
     r = requests.get(BASE_URL + 'search?q={} {}&type=track&limit=1'.format(title, artist), headers=headers)
-    #r = requests.get(BASE_URL + 'search?q={} {}&type=track&limit=1'.format(title, artist), headers=headers.get_access_token()['access_token'])
     print(r.json()['tracks']['items'][0]['uri'])
 
-    
+
+def createPlaylist(username):
+    name = input('What is name of the new playlist: ')
+    spotipyUser.user_playlist_create(username, name)
+
+def addToPlaylist(playlist_id):
+    tracks = ['spotify:track:4wQFB68968Q08qP3iy5DMW', 'spotify:track:6IwKcFdiRQZOWeYNhUiWIv', 'spotify:track:07G9Dbpg14PlUFstgf32id', 'spotify:track:07G9Dbpg14PlUFstgf32id']
+    spotipyUser.user_playlist_add_tracks('ccharlestin', 'spotify:playlist:2aJDqNNgTqiEUlTjq8R9Mj', tracks)
+
+
+def userAuthentication(username, client_id, client_secret, redirect_uri, scope):
+    # https://github.com/plamere/spotipy/issues/194 (Blessed Post)
+    token = util.prompt_for_user_token(
+        username=username,
+        scope=scope,
+        client_id=client_id,
+        client_secret=client_secret,
+        redirect_uri=redirect_uri,
+        show_dialog=True,
+        )
+    #https://stackoverflow.com/questions/48883731/refresh-token-spotipy/48887478 (Also useful)
+    spotipyUser = spotipy.Spotify(auth=token)
+    return spotipyUser
 
 
 def menu():
@@ -86,70 +105,45 @@ def menu():
       print('3. View track information')
       print('4. View playlist information')
       print('5. Add song to playlist')
+      print('6. Get Song URI')
+      print('7. Create Playlist')
+      print('8. Add song(s) to playlist')
       
 
 # https://stmorse.github.io/journal/spotify-api.html (For access token help)
+# https://github.com/rach-sharp/spotipy/commit/b051e2a164815dd5c966382d5f1b0ce05fafd36a (Use later)
 def main():
-    s = requests.session()
+    username = 'ccharlestin'
     client_id = 'd49574f411a24787a536c2e0b58a06ab'
     client_secret = '471996793fa841e695d07bf052305f5c' # Work on putting this in config file later (Config parser?)
     redirect_uri = 'https://www.google.com'
-    # redirect_uri = 'https://accounts.spotify.com/authorize'
-    
     scope = "user-library-read playlist-modify-public playlist-modify-private" # Look into more scopes later
-    auth_manager = spotipy.oauth2.SpotifyOAuth(client_id=client_id, client_secret=client_secret, redirect_uri=redirect_uri, show_dialog=True)
-   # auth_manager.get_auth_response()
-    
-    spotipyObj = spotipy.Spotify(auth_manager=auth_manager)
 
-    #if not auth_manager.get_cached_token():
-        # Step 2. Display sign in link when no token
-    #auth_url = auth_manager.get_authorize_url()
-    #print(auth_url)
-    
-    # print(auth_response)
-    #print(auth_manager.get_access_token()['access_token'])
-    """
-    # POST Request to get access token
-    AUTH_URL = 'https://accounts.spotify.com/api/token'
-    auth_response = requests.post(AUTH_URL, {
-    'grant_type': 'client_credentials',
-    'client_id': client_id,
-    'client_secret':client_secret,
-    })
+    spotipyUser = userAuthentication(username, client_id, client_secret, redirect_uri, scope)
 
-    # convert the response to JSON
-    auth_response_data = auth_response.json()
-
-    # save the access token
-    access_token = auth_response_data['access_token']
-    """
-    headers = {
-    'Authorization': 'Bearer {token}'.format(token=auth_manager.get_access_token()['access_token'])
-    }
-
-    loop = True
-    while loop:
+    while True:
         menu()
         choice = input('Input here: ')
         if choice == '1':
-            printUserStats(spotipyObj)
+            printUserStats(spotipyUser)
         elif choice == '2':
-            printAllLikedSongs(spotipyObj)
+            printAllLikedSongs(spotipyUser)
         elif choice == '3':
-            viewTrackInfo(spotipyObj)
+            viewTrackInfo(spotipyUser)
         elif choice == '4':
-            viewPlaylistInfo(spotipyObj)
+            viewPlaylistInfo(spotipyUser)
         elif choice == '5':
-            addSongToPlaylist(spotipyObj)
+            addSongToPlaylist(spotipyUser)
         elif choice == '6':
-            title = input('Input title: ')
-            artist = input('Input artist: ')
-            getSongURI(headers, title, artist)
-            #print(access_token)
+            getSongURI(spotipyUser._auth_headers())
+        elif choice == '7':
+            createPlaylist(username)
+        elif choice == '7':
+            createPlaylist(username)
+        elif choice == '8':
+            exit()     
         elif choice == '0':
-            s.cookies.clear()
-            loop = False
+            exit()
 
 
 if __name__ == "__main__":
