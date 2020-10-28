@@ -1,3 +1,4 @@
+import os
 import requests
 import spotipy
 import spotipy.util as util
@@ -13,6 +14,7 @@ def printUserStats(spotipyObj):
     
 
 def printAllLikedSongs(spotipyObj):
+    # https://developer.spotify.com/documentation/web-api/reference/library/get-users-saved-tracks/ (Look at "next" key. It may help)
     offset = 0 # Each offset indicates the next set of songs 
     limit = 50 # Max number of songs that can be in dictionary (result) at once 0-49
     count = 0
@@ -76,12 +78,35 @@ def createPlaylist(username):
     name = input('What is name of the new playlist: ')
     spotipyUser.user_playlist_create(username, name)
 
-def addToPlaylist(playlist_id):
-    tracks = ['spotify:track:4wQFB68968Q08qP3iy5DMW', 'spotify:track:6IwKcFdiRQZOWeYNhUiWIv', 'spotify:track:07G9Dbpg14PlUFstgf32id', 'spotify:track:07G9Dbpg14PlUFstgf32id']
-    spotipyUser.user_playlist_add_tracks('ccharlestin', 'spotify:playlist:2aJDqNNgTqiEUlTjq8R9Mj', tracks)
+def addToPlaylist(headers):
+    playlist_name = input('What is the name of the playlist you are adding to: ')
+    
+    BASE_URL = 'https://api.spotify.com/v1/'
+    r = requests.get(BASE_URL + 'search?q={}&type=playlist&limit=1'.format(playlist_name), headers=headers)
+    print(r.json())
+    #tracks = ['spotify:track:4wQFB68968Q08qP3iy5DMW', 'spotify:track:6IwKcFdiRQZOWeYNhUiWIv', 'spotify:track:07G9Dbpg14PlUFstgf32id', 'spotify:track:07G9Dbpg14PlUFstgf32id']
+    #spotipyUser.user_playlist_add_tracks('ccharlestin', 'spotify:playlist:2aJDqNNgTqiEUlTjq8R9Mj', tracks)
 
 
-def userAuthentication(username, client_id, client_secret, redirect_uri, scope):
+def userAuthentication():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    try:
+        username = config['SPOTIFY']['USERNAME']
+        client_id = config['SPOTIFY']['CLIENT_ID']
+        client_secret = config['SPOTIFY']['CLIENT_SECRET']
+        redirect_uri = config['SPOTIFY']['REDIRECT_URI']
+        scope = config['SPOTIFY']['SCOPE']
+    except:
+        print('Please create the config file \"config.ini\" and give it the following format:')
+        print('[SPOTIFY]')
+        print('USERNAME =')
+        print('CLIENT_ID =')
+        print('CLIENT_SECRET =')
+        print('REDIRECT_URI =')
+        print('SCOPE =')
+        
+    
     # https://github.com/plamere/spotipy/issues/194 (Blessed Post)
     token = util.prompt_for_user_token(
         username=username,
@@ -101,25 +126,19 @@ def menu():
       print('What do you want to do')
       print('0. Quit Program')
       print('1. View user information')
-      print('2. View like songs')
+      print('2. View like songs') # Need to find way to get user total like songs w/out iterating 10k times 
       print('3. View track information')
       print('4. View playlist information')
-      print('5. Add song to playlist')
+      print('5. Add a single song to playlist') # Modify and/or remove function
       print('6. Get Song URI')
       print('7. Create Playlist')
-      print('8. Add song(s) to playlist')
+      print('8. Add song(s) to playlist') #Needs work (Restrict adding to playlist that doesn't match user_id)
       
 
 # https://stmorse.github.io/journal/spotify-api.html (For access token help)
 # https://github.com/rach-sharp/spotipy/commit/b051e2a164815dd5c966382d5f1b0ce05fafd36a (Use later)
 def main():
-    username = 'ccharlestin'
-    client_id = 'd49574f411a24787a536c2e0b58a06ab'
-    client_secret = '471996793fa841e695d07bf052305f5c' # Work on putting this in config file later (Config parser?)
-    redirect_uri = 'https://www.google.com'
-    scope = "user-library-read playlist-modify-public playlist-modify-private" # Look into more scopes later
-
-    spotipyUser = userAuthentication(username, client_id, client_secret, redirect_uri, scope)
+    spotipyUser = userAuthentication()
 
     while True:
         menu()
@@ -138,10 +157,8 @@ def main():
             getSongURI(spotipyUser._auth_headers())
         elif choice == '7':
             createPlaylist(username)
-        elif choice == '7':
-            createPlaylist(username)
         elif choice == '8':
-            exit()     
+            addToPlaylist(spotipyUser._auth_headers())     
         elif choice == '0':
             exit()
 
